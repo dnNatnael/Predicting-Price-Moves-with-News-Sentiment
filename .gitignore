@@ -1,0 +1,75 @@
+# -------------------------
+#  Python virtual environment
+# -------------------------
+venv/
+ENV/
+env/
+.venv/
+
+# -------------------------
+#  Python cache files
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# -------------------------
+#  Jupyter Notebook checkpoints
+# -------------------------
+.ipynb_checkpoints/
+
+# -------------------------
+#  VSCode settings
+# -------------------------
+.vscode/
+
+# -------------------------
+#  Logs and temp files
+# -------------------------
+*.log
+*.tmp
+*.temp
+
+# -------------------------
+#  OS generated files
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------
+#  Environment/config files
+# -------------------------
+*.env
+.env.*
+*.ini
+
+# -------------------------
+#  Data files (avoid pushing large datasets)
+# -------------------------
+data/
+*.csv
+*.xlsx
+*.parquet
+
+# -------------------------
+#  Model artifacts
+# -------------------------
+models/
+*.h5
+*.pkl
+*.joblib
+
+# -------------------------
+#  Build / packaging
+# -------------------------
+dist/
+build/
+*.egg-info/
+
+# -------------------------
+#  Misc
+# -------------------------
+*.sqlite
+*.db
