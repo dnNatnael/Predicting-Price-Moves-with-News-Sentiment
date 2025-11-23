@@ -18,3 +18,7 @@ notebook
 bertopic
 sentence-transformers
 pytest
+plotly
+umap-learn
+hdbscan
+pyLDAvis
