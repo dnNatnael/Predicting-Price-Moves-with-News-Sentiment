@@ -413,11 +413,17 @@ class EDAAnalyzer:
             max_month = max(freq['by_month'].items(), key=lambda x: x[1])
             month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            report.append(f"  {month_names[max_month[0]-1]}: {max_month[1]} articles")
+            month_idx = int(round(max_month[0])) - 1
+            if month_idx < 0 or month_idx >= len(month_names):
+                month_label = str(max_month[0])
+            else:
+                month_label = month_names[month_idx]
+            report.append(f"  {month_label}: {max_month[1]} articles")
             report.append("")
             report.append("Peak Hour:")
             max_hour = max(freq['by_hour'].items(), key=lambda x: x[1])
-            report.append(f"  Hour {max_hour[0]}: {max_hour[1]} articles")
+            hour_val = int(round(max_hour[0]))
+            report.append(f"  Hour {hour_val:02d}:00 with {max_hour[1]} articles")
             report.append("")
         
         # News Spikes
