@@ -1,0 +1,60 @@
+================================================================================
+EXPLORATORY DATA ANALYSIS REPORT
+Financial News and Stock Price Integration Dataset (FNSPID)
+================================================================================
+
+1. DESCRIPTIVE STATISTICS
+--------------------------------------------------------------------------------
+Total Articles: 55,987
+Unique Publishers: 225
+Unique Stocks: 6204
+Date Range: 2011-04-28 01:01:48+00:00 to 2020-06-11 21:12:35+00:00
+
+Headline Length (Characters):
+  Min: 12
+  Max: 512
+  Mean: 80.02
+  Median: 63.00
+  Std Dev: 56.13
+
+Headline Word Count:
+  Min: 2
+  Max: 77
+  Mean: 12.44
+  Median: 10.00
+
+2. TOP 10 PUBLISHERS
+--------------------------------------------------------------------------------
+Benzinga Newsdesk: 14750 articles
+Lisa Levin: 12408 articles
+ETF Professor: 4362 articles
+Paul Quintaro: 4212 articles
+Benzinga Newsdesk: 3177 articles
+Benzinga Insights: 2332 articles
+Vick Meyer: 2128 articles
+Charles Gross: 1790 articles
+Hal Lindon: 1470 articles
+Benzinga_Newsdesk: 1239 articles
+
+3. PUBLICATION FREQUENCY INSIGHTS
+--------------------------------------------------------------------------------
+Most Active Day of Week:
+  Thursday: 12712 articles
+
+Most Active Month:
+  May: 11364 articles
+
+Peak Hour:
+  Hour 14: 7669 articles
+
+4. DETECTED NEWS ACTIVITY SPIKES
+--------------------------------------------------------------------------------
+Total Spikes Detected: 51
+Top 5 Spikes:
+  2020-03-12: 973 articles (13.88σ above mean)
+  2020-06-05: 932 articles (13.28σ above mean)
+  2020-06-10: 807 articles (11.46σ above mean)
+  2020-06-09: 803 articles (11.40σ above mean)
+  2020-06-08: 765 articles (10.85σ above mean)
+
+================================================================================
