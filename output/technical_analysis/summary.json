@@ -1,0 +1,9 @@
+{
+  "annualized_volatility":0.1268776887,
+  "sharpe_ratio":1.0662762846,
+  "last_cumulative_return":69.0774261141,
+  "autocorr_lag1":-0.0310933056,
+  "autocorr_lag5":0.0140879417,
+  "snapshot_path":"C:\/Users\/HomePC\/Desktop\/Second\/Predicting-Price-Moves-with-News-Sentiment\/output\/technical_analysis\/dataframe_snapshot.csv",
+  "plots_dir":"C:\/Users\/HomePC\/Desktop\/Second\/Predicting-Price-Moves-with-News-Sentiment\/output\/technical_analysis\/plots"
+}
