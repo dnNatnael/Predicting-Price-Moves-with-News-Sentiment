@@ -1,3 +1,4 @@
+import argparse
 import math
 from pathlib import Path
 
@@ -9,11 +10,110 @@ import talib
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_PATH = BASE_DIR / "data" / "AAPL.csv"
-OUTPUT_DIR = BASE_DIR / "output" / "technical_analysis"
-PLOTS_DIR = OUTPUT_DIR / "plots"
+DEFAULT_DATA_PATH = BASE_DIR / "data" / "AAPL.csv"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "output" / "technical_analysis"
+DEFAULT_PLOTS_DIR = DEFAULT_OUTPUT_DIR / "plots"
 
 plt.style.use("seaborn-v0_8-darkgrid")
+
+
+# Configuration with CLI support
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments for technical analysis"""
+    parser = argparse.ArgumentParser(
+        description="Technical Analysis of Stock Data with TA-Lib and PyNance"
+    )
+    parser.add_argument(
+        "--ticker",
+        type=str,
+        default="AAPL",
+        help="Stock ticker symbol (default: AAPL)"
+    )
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=None,
+        help="Path to CSV file with OHLCV data. If not provided, uses data/{TICKER}.csv"
+    )
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        help="Start date for analysis (YYYY-MM-DD)"
+    )
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        help="End date for analysis (YYYY-MM-DD)"
+    )
+    parser.add_argument(
+        "--sma-window",
+        type=int,
+        nargs="+",
+        default=[20, 50, 100],
+        help="SMA window periods (default: 20 50 100)"
+    )
+    parser.add_argument(
+        "--rsi-window",
+        type=int,
+        default=14,
+        help="RSI period (default: 14)"
+    )
+    parser.add_argument(
+        "--bb-window",
+        type=int,
+        default=20,
+        help="Bollinger Bands window (default: 20)"
+    )
+    parser.add_argument(
+        "--volatility-window",
+        type=int,
+        default=30,
+        help="Rolling volatility window (default: 30)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"Output directory (default: {DEFAULT_OUTPUT_DIR})"
+    )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Skip generating plots"
+    )
+    return parser.parse_args()
+
+
+def validate_data_sufficiency(df: pd.DataFrame, min_periods: int = 100) -> bool:
+    """
+    Validate that dataframe has sufficient history for indicators
+    
+    Args:
+        df: DataFrame with price data
+        min_periods: Minimum number of rows required
+        
+    Returns:
+        True if sufficient data, raises ValueError otherwise
+    """
+    if len(df) < min_periods:
+        raise ValueError(
+            f"Insufficient data: {len(df)} rows. "
+            f"Minimum {min_periods} rows required for reliable indicator calculation. "
+            f"Consider using a longer date range or different ticker."
+        )
+    
+    # Check for missing values in key columns
+    required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    for col in required_cols:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column: {col}")
+        missing_pct = df[col].isna().sum() / len(df) * 100
+        if missing_pct > 10:
+            print(f"Warning: Column '{col}' has {missing_pct:.1f}% missing values")
+    
+    return True
 
 
 def load_and_clean(path: Path) -> pd.DataFrame:
@@ -28,20 +128,42 @@ def load_and_clean(path: Path) -> pd.DataFrame:
     return df
 
 
-def add_ta_indicators(df: pd.DataFrame) -> pd.DataFrame:
+def add_ta_indicators(df: pd.DataFrame, 
+                      sma_windows: list = None,
+                      rsi_window: int = 14,
+                      bb_window: int = 20) -> pd.DataFrame:
+    """
+    Add technical indicators to the dataframe
+    
+    Args:
+        df: DataFrame with OHLCV data
+        sma_windows: List of SMA window periods (default: [20, 50, 100])
+        rsi_window: RSI period (default: 14)
+        bb_window: Bollinger Bands window (default: 20)
+        
+    Returns:
+        DataFrame with added technical indicators
+    """
+    if sma_windows is None:
+        sma_windows = [20, 50, 100]
+    
     close = df["Close"]
     high = df["High"]
     low = df["Low"]
-
-    df["SMA_20"] = talib.SMA(close, timeperiod=20)
-    df["SMA_50"] = talib.SMA(close, timeperiod=50)
-    df["SMA_100"] = talib.SMA(close, timeperiod=100)
-
+    
+    # SMA indicators
+    for window in sma_windows:
+        df[f"SMA_{window}"] = talib.SMA(close, timeperiod=window)
+    
+    # EMA indicators (using first two SMA windows)
     df["EMA_20"] = talib.EMA(close, timeperiod=20)
-    df["EMA_50"] = talib.EMA(close, timeperiod=50)
-
-    df["RSI_14"] = talib.RSI(close, timeperiod=14)
-
+    if 50 in sma_windows:
+        df["EMA_50"] = talib.EMA(close, timeperiod=50)
+    
+    # RSI
+    df[f"RSI_{rsi_window}"] = talib.RSI(close, timeperiod=rsi_window)
+    
+    # Stochastic
     slowk, slowd = talib.STOCH(
         high,
         low,
@@ -54,18 +176,21 @@ def add_ta_indicators(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["STOCH_%K"] = slowk
     df["STOCH_%D"] = slowd
-
+    
+    # MACD
     macd, macd_signal, macd_hist = talib.MACD(
         close, fastperiod=12, slowperiod=26, signalperiod=9
     )
     df["MACD"] = macd
     df["MACD_Signal"] = macd_signal
     df["MACD_Hist"] = macd_hist
-
+    
+    # ATR
     df["ATR_14"] = talib.ATR(high, low, close, timeperiod=14)
-
+    
+    # Bollinger Bands
     upper, middle, lower = talib.BBANDS(
-        close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0
+        close, timeperiod=bb_window, nbdevup=2, nbdevdn=2, matype=0
     )
     df["BB_Upper"] = upper
     df["BB_Middle"] = middle
@@ -73,7 +198,17 @@ def add_ta_indicators(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def compute_pynance_metrics(df: pd.DataFrame) -> dict:
+def compute_pynance_metrics(df: pd.DataFrame, volatility_window: int = 30) -> dict:
+    """
+    Compute metrics using PyNance
+    
+    Args:
+        df: DataFrame with Close and Volume columns
+        volatility_window: Rolling window for volatility calculation
+        
+    Returns:
+        Dictionary with computed metrics
+    """
     metrics = {}
     close_frame = df[["Close"]].copy()
 
@@ -88,18 +223,20 @@ def compute_pynance_metrics(df: pd.DataFrame) -> dict:
     df["Cumulative_Return"] = (1 + df["Daily_Return"]).cumprod() - 1
 
     rolling_vol = pn.tech.volatility(
-        close_frame, selection="Close", window=30, outputcol="Rolling_Volatility_30"
+        close_frame, selection="Close", window=volatility_window, outputcol="Rolling_Volatility"
     )
-    df["Rolling_Volatility_30"] = rolling_vol["Rolling_Volatility_30"]
+    df[f"Rolling_Volatility_{volatility_window}"] = rolling_vol[f"Rolling_Volatility"]
 
     returns_frame = df[["Daily_Return"]].copy()
     returns_frame.columns = ["Daily_Return"]
     rolling_return_vol = pn.tech.volatility(
-        returns_frame, selection="Daily_Return", window=30, outputcol="Return_Vol_30"
+        returns_frame, selection="Daily_Return", window=volatility_window, outputcol="Return_Vol"
     )
-    df["Return_Vol_30"] = rolling_return_vol["Return_Vol_30"]
-
-    latest_vol = df["Return_Vol_30"].dropna().iloc[-1]
+    df[f"Return_Vol_{volatility_window}"] = rolling_return_vol[f"Return_Vol"]
+    
+    # Use the correct column name for the last value
+    vol_col = f"Return_Vol_{volatility_window}"
+    latest_vol = df[vol_col].dropna().iloc[-1] if vol_col in df.columns else df["Return_Vol_30"].dropna().iloc[-1]
     annualized_vol = latest_vol * math.sqrt(252)
     metrics["Annualized_Volatility"] = annualized_vol
 
@@ -129,18 +266,20 @@ def compute_pynance_metrics(df: pd.DataFrame) -> dict:
     return metrics
 
 
-def ensure_output_dirs():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+def ensure_output_dirs(output_dir: Path = DEFAULT_OUTPUT_DIR, 
+                     plots_dir: Path = DEFAULT_PLOTS_DIR):
+    """Create output directories"""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _save_plot(fig, name: str):
+def _save_plot(fig, name: str, plots_dir: Path = DEFAULT_PLOTS_DIR):
     fig.tight_layout()
-    fig.savefig(PLOTS_DIR / f"{name}.png", dpi=200)
+    fig.savefig(plots_dir / f"{name}.png", dpi=200)
     plt.close(fig)
 
 
-def create_plots(df: pd.DataFrame):
+def create_plots(df: pd.DataFrame, plots_dir: Path = DEFAULT_PLOTS_DIR):
     last_year = df.index >= (df.index.max() - pd.DateOffset(years=1))
     plot_df = df.loc[last_year]
 
@@ -223,24 +362,77 @@ def create_plots(df: pd.DataFrame):
     _save_plot(fig, "rolling_volatility")
 
 
-def main():
-    ensure_output_dirs()
+def main(args: argparse.Namespace = None):
+    """Main execution function with CLI support"""
+    
+    # Parse arguments if not provided
+    if args is None:
+        args = parse_arguments()
+    
+    # Set up paths
+    OUTPUT_DIR = args.output_dir
+    PLOTS_DIR = OUTPUT_DIR / "plots"
+    
+    # Resolve data path
+    if args.data_path:
+        DATA_PATH = args.data_path
+    else:
+        DATA_PATH = BASE_DIR / "data" / f"{args.ticker.upper()}.csv"
+    
+    ensure_output_dirs(OUTPUT_DIR, PLOTS_DIR)
+    
+    # Load data
+    print(f"Loading data from {DATA_PATH}")
     df = load_and_clean(DATA_PATH)
-    df = add_ta_indicators(df)
-    metrics = compute_pynance_metrics(df)
-    create_plots(df)
-
+    print(f"Loaded {len(df)} rows of data")
+    
+    # Filter by date range if specified
+    if args.start_date:
+        start_date = pd.to_datetime(args.start_date)
+        df = df[df.index >= start_date]
+        print(f"Filtered to {len(df)} rows from {args.start_date}")
+    
+    if args.end_date:
+        end_date = pd.to_datetime(args.end_date)
+        df = df[df.index <= end_date]
+        print(f"Filtered to {len(df)} rows until {args.end_date}")
+    
+    # Validate data sufficiency
+    validate_data_sufficiency(df)
+    
+    # Add technical indicators
+    print(f"Adding technical indicators (SMA: {args.sma_window}, RSI: {args.rsi_window}, BB: {args.bb_window})")
+    df = add_ta_indicators(df, sma_windows=args.sma_window, rsi_window=args.rsi_window, bb_window=args.bb_window)
+    
+    # Compute PyNance metrics
+    print(f"Computing metrics (volatility window: {args.volatility_window})")
+    metrics = compute_pynance_metrics(df, volatility_window=args.volatility_window)
+    
+    # Create plots
+    if not args.no_plots:
+        print("Generating plots...")
+        create_plots(df, PLOTS_DIR)
+    else:
+        print("Skipping plots")
+    
+    # Save outputs
     snapshot_path = OUTPUT_DIR / "dataframe_snapshot.csv"
     df.tail(10).to_csv(snapshot_path)
     corr_path = OUTPUT_DIR / "correlation_matrix.csv"
     metrics["Correlation_Matrix"].to_csv(corr_path)
-
+    
     summary = {
+        "ticker": args.ticker,
+        "data_rows": len(df),
+        "date_range": f"{df.index.min()} to {df.index.max()}",
         "annualized_volatility": metrics["Annualized_Volatility"],
         "sharpe_ratio": metrics["Sharpe_Ratio"],
         "last_cumulative_return": metrics["Return_Summary"]["last_cumulative_return"],
         "autocorr_lag1": metrics["Autocorrelation_Returns_lag1"],
         "autocorr_lag5": metrics["Autocorrelation_Returns_lag5"],
+        "sma_windows": args.sma_window,
+        "rsi_window": args.rsi_window,
+        "volatility_window": args.volatility_window,
         "snapshot_path": snapshot_path.as_posix(),
         "plots_dir": PLOTS_DIR.as_posix(),
     }
@@ -250,5 +442,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    main(args)
 
