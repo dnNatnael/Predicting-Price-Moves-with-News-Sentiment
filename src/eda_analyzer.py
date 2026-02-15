@@ -1,6 +1,22 @@
 """
 Exploratory Data Analysis Module
 Performs comprehensive EDA on the financial news dataset
+
+Module Usage:
+    >>> from eda_analyzer import EDAAnalyzer
+    >>> analyzer = EDAAnalyzer(df, output_dir="output")
+    >>> stats = analyzer.compute_descriptive_stats()
+    >>> analyzer.plot_headline_length_distribution()
+
+Key Parameters:
+    - df: DataFrame with columns [headline, url, publisher, date, stock, 
+           headline_length, headline_word_count, date_only, etc.]
+    - output_dir: Directory for saving visualizations and data files
+    - top_n: Number of top items to include in rankings/analyses
+    - threshold_std: Standard deviations above mean for spike detection
+
+Author: Nova Financial Solutions
+Version: 2.0.0
 """
 
 import pandas as pd

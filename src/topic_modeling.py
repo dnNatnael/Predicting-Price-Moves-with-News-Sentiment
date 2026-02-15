@@ -1,6 +1,33 @@
 """
 Topic Modeling Module
 Performs topic modeling using LDA and BERTopic on financial news headlines
+
+Module Usage:
+    >>> from topic_modeling import TopicModeler
+    >>> modeler = TopicModeler(df, output_dir="output")
+    >>> modeler.prepare_corpus()
+    >>> lda_model = modeler.train_lda(num_topics=10, passes=10)
+    >>> topics = modeler.get_lda_topics(num_words=10)
+
+Parameter Choices:
+    - num_topics (LDA): 10 topics is a good starting point. Can be tuned using
+      coherence scores (see compute_coherence method).
+    - min_topic_size (BERTopic): 10 is minimum; larger values (20-50) produce
+      more stable topics but may miss niche topics.
+    - passes: 10 passes provides good convergence; increase for larger datasets.
+    - alpha/eta: 'auto' allows automatic tuning based on corpus size.
+
+Preprocessing Steps:
+    1. Lowercase conversion
+    2. URL removal
+    3. Special character removal
+    4. Tokenization (NLTK word_tokenize)
+    5. Stopword removal (NLTK english + financial custom stopwords)
+    6. Lemmatization (WordNetLemmatizer)
+    7. Short word removal (< 3 characters)
+
+Author: Nova Financial Solutions
+Version: 2.0.0
 """
 
 import pandas as pd
@@ -474,4 +501,91 @@ class TopicModeler:
         }
         
         return categories
+    
+    def compute_coherence(self, coherence_type: str = 'c_v') -> float:
+        """
+        Compute coherence score for the trained LDA model
+        
+        Args:
+            coherence_type: Type of coherence measure ('c_v', 'c_uci', 'c_npmi')
+            
+        Returns:
+            Coherence score (higher is better, typically 0-1)
+            
+        Note:
+            - c_v: Uses normalized pointwise mutual information and cosine similarity
+            - c_uci: Uses conditional probability and log ratio
+            - c_npmi: Normalized PMI, better for shorter texts
+        """
+        if self.lda_model is None:
+            raise ValueError("LDA model not trained. Call train_lda() first.")
+        
+        coherence_model = CoherenceModel(
+            model=self.lda_model,
+            texts=self.processed_texts,
+            dictionary=self.dictionary,
+            coherence=coherence_type
+        )
+        
+        coherence_score = coherence_model.get_coherence()
+        return coherence_score
+
+
+def run_topic_modeling(df: pd.DataFrame, output_dir: str = "output",
+                       num_topics: int = 10, min_topic_size: int = 10,
+                       run_lda: bool = True, run_bertopic: bool = False) -> Dict:
+    """
+    Convenience function to run complete topic modeling pipeline
+    
+    Args:
+        df: DataFrame with 'headline' column
+        output_dir: Directory for outputs
+        num_topics: Number of topics for LDA
+        min_topic_size: Minimum topic size for BERTopic
+        run_lda: Whether to run LDA
+        run_bertopic: Whether to run BERTopic
+        
+    Returns:
+        Dictionary with trained models and results
+    """
+    modeler = TopicModeler(df, output_dir)
+    results = {'modeler': modeler}
+    
+    # Prepare corpus
+    modeler.prepare_corpus()
+    
+    # Extract keywords
+    keywords = modeler.extract_frequent_keywords(50)
+    modeler.plot_frequent_keywords(30)
+    results['keywords'] = keywords
+    
+    # LDA
+    if run_lda:
+        lda_model = modeler.train_lda(num_topics=num_topics, passes=10)
+        lda_topics = modeler.get_lda_topics(num_words=10)
+        coherence = modeler.compute_coherence()
+        modeler.plot_lda_topics(num_words=10)
+        results['lda_model'] = lda_model
+        results['lda_topics'] = lda_topics
+        results['coherence_score'] = coherence
+        print(f"LDA Coherence Score (c_v): {coherence:.4f}")
+        
+        try:
+            modeler.create_lda_visualization()
+        except Exception as e:
+            print(f"LDA visualization skipped: {e}")
+    
+    # BERTopic
+    if run_bertopic:
+        try:
+            bertopic_model = modeler.train_bertopic(min_topic_size=min_topic_size)
+            if bertopic_model:
+                bertopic_topics = modeler.get_bertopic_topics()
+                modeler.plot_bertopic_topics()
+                results['bertopic_model'] = bertopic_model
+                results['bertopic_topics'] = bertopic_topics
+        except Exception as e:
+            print(f"BERTopic skipped: {e}")
+    
+    return results
 
