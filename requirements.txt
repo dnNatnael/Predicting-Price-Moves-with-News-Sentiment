@@ -3,6 +3,8 @@ numpy
 matplotlib
 seaborn
 scikit-learn
+scipy
+vaderSentiment
 nltk
 spacy
 textblob
